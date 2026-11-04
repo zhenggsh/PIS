@@ -1,26 +1,145 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ============ PIS 主题令牌（科技感 / 深色 / 统一） ============ */
+@theme {
+  --color-bg: #050a14;
+  --color-panel: #0b1424;
+  --color-elevated: #101c31;
+  --color-line: #1d2c47;
+  --color-line-soft: #16233a;
+
+  --color-fg: #dce7f7;
+  --color-muted: #8296b6;
+  --color-faint: #5b6e8d;
+
+  --color-accent: #38bdf8;
+  --color-accent-2: #22d3ee;
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-danger: #fb7185;
+  --color-critical: #fb923c;
+
+  --font-sans: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system,
+    "Helvetica Neue", sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  html {
+    color-scheme: dark;
+    height: 100%;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  body {
+    min-height: 100%;
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    background-image:
+      radial-gradient(900px 480px at 12% -8%, rgba(56, 189, 248, 0.12), transparent 60%),
+      radial-gradient(760px 420px at 88% -12%, rgba(34, 211, 238, 0.1), transparent 60%),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.015), transparent 320px);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgba(56, 189, 248, 0.32);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #24354f transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #24354f;
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #33486a;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .pis-card {
+    @apply rounded-xl border border-line bg-panel/80 backdrop-blur-sm;
+  }
+
+  .pis-label {
+    @apply mb-1 block text-xs font-medium tracking-wide text-muted;
+  }
+
+  .pis-input {
+    @apply w-full rounded-lg border border-line bg-elevated/70 px-3 py-2 text-sm text-fg
+      outline-none transition placeholder:text-faint
+      focus:border-accent/70 focus:ring-2 focus:ring-accent/20
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .pis-btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-line
+      bg-elevated/70 px-3 py-2 text-sm font-medium text-fg transition
+      hover:border-accent/50 hover:bg-elevated
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .pis-btn-primary {
+    @apply border-transparent bg-gradient-to-r from-accent to-accent-2 text-slate-950
+      shadow-[0_0_18px_-6px_rgba(56,189,248,0.8)]
+      hover:from-accent-2 hover:to-accent hover:text-slate-950;
+  }
+
+  .pis-btn-ghost {
+    @apply border-transparent bg-transparent text-muted hover:bg-elevated/60 hover:text-fg;
+  }
+
+  .pis-btn-danger {
+    @apply border-danger/40 bg-danger/10 text-danger hover:border-danger/70 hover:bg-danger/20;
+  }
+
+  .pis-chip {
+    @apply inline-flex items-center gap-1 rounded-md border border-line bg-elevated/60
+      px-1.5 py-0.5 text-[11px] font-medium text-muted;
+  }
+}
+
+@layer utilities {
+  .pis-scroll-x {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .pis-glow {
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.24), 0 0 24px -8px rgba(56, 189, 248, 0.55);
+  }
+
+  /* 字标：对「PIS」字母做渐变填充 + 辉光，不使用图形图标 */
+  .pis-wordmark {
+    background-image: linear-gradient(115deg, #7dd3fc 0%, #38bdf8 34%, #22d3ee 66%, #34d399 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.35));
+  }
 }
