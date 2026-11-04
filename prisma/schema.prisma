@@ -1,0 +1,145 @@
+// PIS (Project InSight) —— 数据模型
+// 设计蓝本：docs/project-system-design.md v1.1（第 5 章）
+// 说明：v1 运行于 SQLite，故不使用 enum / Db 原生 Date 类型：
+//   - 枚举以 String 落库（取值见 src/lib/domain/types.ts）
+//   - 纯日期字段以 "YYYY-MM-DD" 字符串落库，规避时区换算歧义
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ============ 用户与权限（v1 未启用登录，仅预留结构） ============
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String?
+  createdAt    DateTime @default(now())
+
+  memberships ProjectMember[]
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      String   @default("MEMBER") // OWNER | PM | MEMBER | VIEWER
+  joinedAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+// ============ 项目与工作日历 ============
+model Project {
+  id            String   @id @default(cuid())
+  key           String   @unique // 项目代号，如 PIS-2026
+  name          String
+  description   String?
+  status        String   @default("PLANNING") // PLANNING | ACTIVE | ON_HOLD | CLOSED
+  kickoffDate   String // 开工会起点（起始里程碑），"YYYY-MM-DD"
+  preAcceptDate String // 初验点（目标里程碑），"YYYY-MM-DD"
+  workweekMask  Int      @default(31) // 位掩码：1=周一 … 64=周日；31=周一~周五
+  maxLeafDays   Int      @default(3) // 叶子任务工期上限（校验规则 V3）
+  aiScanEnabled Boolean  @default(false) // V5/V6 扫描开关（v1 预留）
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tasks       Task[]
+  members     ProjectMember[]
+  holidays    Holiday[]
+  auditLogs   AuditLog[]
+}
+
+model Holiday {
+  id        String @id @default(cuid())
+  projectId String
+  date      String // "YYYY-MM-DD"
+  name      String?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, date])
+}
+
+// ============ WBS / 任务 / 里程碑 ============
+model Task {
+  id             String  @id @default(cuid())
+  projectId      String
+  parentId       String?
+  wbsCode        String // 自动生成，如 1.2.3
+  sortOrder      Int     @default(0)
+  name           String
+  description    String?
+  taskType       String  @default("TASK") // SUMMARY | TASK | MILESTONE
+  status         String  @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | BLOCKED | DONE
+  durationDays   Int     @default(1) // 按工作日计；MILESTONE 恒为 0
+  constraintType String  @default("ASAP") // ASAP | MSO
+  constraintDate String? // 仅 MSO 时有值
+  isKickoff      Boolean @default(false) // 起始里程碑（全项目唯一"根任务"）
+  isPreAccept    Boolean @default(false) // 初验点里程碑
+
+  // ↓ 人工填报字段
+  assignee          String? // 资源（v1 为自由文本；后续演进为 TaskAssignee[]）
+  progressPct       Int      @default(0) // 进度 0~100
+  progressNote      String? // 进展描述
+  progressUpdatedAt DateTime?
+
+  // ↓ 排期引擎写入的派生字段（不接受用户直接编辑，见校验规则 V4）
+  plannedStart   String? // 计划起始时间（含首日口径）
+  plannedEnd     String? // 计划终止时间
+  scheduleSource String? // 推算依据 JSON
+  actualStart    String?
+  actualEnd      String?
+  isCritical     Boolean  @default(false)
+  totalFloatDays Int?
+
+  version   Int      @default(1) // 乐观锁
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent  Task?          @relation("WbsTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Task[]        @relation("WbsTree")
+  preds   Dependency[]   @relation("PredSide")
+  succs   Dependency[]   @relation("SuccSide")
+
+  @@index([projectId, parentId, sortOrder])
+}
+
+model Dependency {
+  id        String @id @default(cuid())
+  projectId String
+  predId    String // 前置任务
+  succId    String // 后续任务
+  type      String @default("FS") // v1 仅启用 FS（其余枚举预留）
+  lagDays   Int    @default(0) // 滞后量，可为负
+
+  pred Task @relation("PredSide", fields: [predId], references: [id], onDelete: Cascade)
+  succ Task @relation("SuccSide", fields: [succId], references: [id], onDelete: Cascade)
+
+  @@unique([predId, succId])
+  @@index([projectId])
+}
+
+// ============ 变更审计（含 CONFIRM 规则绕过留痕，见设计文档 7.1） ============
+model AuditLog {
+  id         String   @id @default(cuid())
+  projectId  String
+  action     String // TASK_CREATE / DURATION_UPDATE / OVERRIDE_GRANULARITY ...
+  targetType String
+  targetId   String?
+  payload    String? // 变更内容与影响快照 JSON
+  createdAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+}
